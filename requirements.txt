@@ -1,4 +1,7 @@
-opencv-python-headless
+streamlit
+pandas
+pdfplumber
 pytesseract
 Pillow
-pdfplumber
+opencv-python-headless
+numpy
