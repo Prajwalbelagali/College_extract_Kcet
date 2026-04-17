@@ -1,46 +1,62 @@
 import pdfplumber
 import pytesseract
-import cv2
 from PIL import Image
-import pandas as pd
 import re
+import numpy as np
+
+# Safe import for OpenCV
+try:
+    import cv2
+except ImportError:
+    cv2 = None
 
 
-def extract_text_from_pdf(pdf_path):
+# -------- PDF TEXT EXTRACTION --------
+def extract_text_from_pdf(file):
     text = ""
-    with pdfplumber.open(pdf_path) as pdf:
+    with pdfplumber.open(file) as pdf:
         for page in pdf.pages:
-            text += page.extract_text() + "\n"
+            text += page.extract_text() or ""
     return text
 
 
-def extract_text_from_image(image_path):
-    img = cv2.imread(image_path)
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    text = pytesseract.image_to_string(gray)
+# -------- IMAGE TEXT EXTRACTION --------
+def extract_text_from_image(file):
+    image = Image.open(file)
+
+    if cv2:
+        img = np.array(image)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        text = pytesseract.image_to_string(gray)
+    else:
+        text = pytesseract.image_to_string(image)
+
     return text
 
 
+# -------- DATA PARSING --------
 def parse_data(text):
-    """
-    Customize regex based on document format
-    Example pattern:
-    College Name | CET Code | Branch | District
-    """
+    lines = text.split("\n")
     data = []
 
-    pattern = re.findall(
-        r"([A-Za-z\s]+)\s+(\d{4})\s+([A-Za-z\s]+)\s+([A-Za-z\s]+)",
-        text
-    )
+    for line in lines:
+        line = line.strip()
 
-    for match in pattern:
-        college, cet_code, branch, district = match
-        data.append({
-            "College Name": college.strip(),
-            "CET Code": cet_code.strip(),
-            "Branch": branch.strip(),
-            "District": district.strip()
-        })
+        # Example pattern:
+        # College Name - Branch - CET Code - District
+        match = re.match(r"(.+?)\s+([A-Z]{2,})\s+(\d{3,5})\s+(.+)", line)
 
-    return pd.DataFrame(data)
+        if match:
+            college = match.group(1)
+            branch = match.group(2)
+            code = match.group(3)
+            district = match.group(4)
+
+            data.append({
+                "College": college,
+                "Branch": branch,
+                "CET Code": code,
+                "District": district
+            })
+
+    return data
