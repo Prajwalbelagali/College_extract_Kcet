@@ -1,24 +1,43 @@
+import streamlit as st
+import pandas as pd
 from extractor import extract_text_from_pdf, extract_text_from_image, parse_data
-from utils import save_to_csv
-import sys
 
+st.set_page_config(page_title="KCET College Extractor")
 
-def main():
-    file_path = input("Enter file path (PDF/Image): ")
+st.title("📊 KCET College Data Extractor")
 
-    if file_path.endswith(".pdf"):
-        text = extract_text_from_pdf(file_path)
+uploaded_file = st.file_uploader(
+    "Upload PDF or Image",
+    type=["pdf", "png", "jpg", "jpeg"]
+)
+
+if uploaded_file:
+    file_type = uploaded_file.type
+
+    with st.spinner("Extracting text..."):
+        if "pdf" in file_type:
+            text = extract_text_from_pdf(uploaded_file)
+        else:
+            text = extract_text_from_image(uploaded_file)
+
+    st.subheader("📄 Extracted Text Preview")
+    st.text_area("Text", text[:2000], height=200)
+
+    st.subheader("🔍 Parsed Data")
+
+    data = parse_data(text)
+
+    if data:
+        df = pd.DataFrame(data)
+        st.dataframe(df)
+
+        csv = df.to_csv(index=False).encode("utf-8")
+
+        st.download_button(
+            "⬇ Download CSV",
+            csv,
+            "kcet_colleges.csv",
+            "text/csv"
+        )
     else:
-        text = extract_text_from_image(file_path)
-
-    df = parse_data(text)
-
-    if df.empty:
-        print("No data extracted. Please check format or regex.")
-    else:
-        print(df.head())
-        save_to_csv(df, "output.csv")
-
-
-if __name__ == "__main__":
-    main()
+        st.warning("No structured data found!")
